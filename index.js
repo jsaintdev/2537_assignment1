@@ -133,8 +133,6 @@ app.get('/login', (req, res) => {
     res.send(html);
 });
 
-
-// Lists existing users
 app.post('/signupSubmit', async (req, res) => {
     const name = req.body.name;
     const email = req.body.email;
@@ -172,8 +170,14 @@ app.post('/signupSubmit', async (req, res) => {
 
     await userCollection.insertOne({name: name, email: email, password: hashedPassword});
     console.log("Successfully created user");
+
+    // Log in the user
+    req.session.authenticated = true;
+    req.session.name = name;
+
     res.redirect("/members");
 });
+
 
 
 
