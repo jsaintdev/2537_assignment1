@@ -171,9 +171,8 @@ app.post('/signupSubmit', async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, saltRounds);
 
     await userCollection.insertOne({name: name, email: email, password: hashedPassword});
-    console.log("Inserted user");
-
-    const html = "Successfully created user";
+    console.log("Successfully created user");
+    res.redirect("/Members");
     res.send(html);
 });
 
