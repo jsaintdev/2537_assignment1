@@ -210,7 +210,7 @@ app.post('/loggingin', async (req, res) => {
         req.session.name = result[0].name;
         req.session.cookie.maxAge = expireTime;
 
-        res.redirect('/loggedIn');
+        res.redirect('/members');
         return;
     }
     else {
@@ -224,24 +224,10 @@ app.post('/loggingin', async (req, res) => {
     }
 });
 
-// Page that confirms log-in was successful
-app.get('/loggedin', (req, res) => {
-    if (!req.session.authenticated) {
-        res.redirect('/login');
-    }
-    var html = `
-    You are logged in!
-    `;
-    res.send(html);
-});
-
 // Logs the user out
 app.get('/logout', (req,res) => {
     req.session.destroy();
-    var html = `
-    You are logged out.
-    `;
-    res.send(html);
+    res.redirect('/');
 })
 
 // Creates member page with a random pic of one of my girls <3
@@ -263,7 +249,7 @@ app.get('/members', (req, res) => {
         <h1>Hello, ${req.session.name}.</h1>
         <img src='${randomCat.src}' style='width:250px;'>
         <br>
-        <form action='/signout' method='get'>
+        <form action='/logout' method='get'>
             <button>Sign out</button>
         </form>
     `;
