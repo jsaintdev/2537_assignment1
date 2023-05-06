@@ -1,0 +1,6 @@
+<%- include("templates/header") %> 
+    <% if (invalidCredentials) { %>
+        Invalid email/password combination
+        <br><a href='/login'>Try Again</a>
+    <% } %>
+<%- include("templates/footer") %> 

@@ -2,6 +2,7 @@
 require("./utils.js");
 
 require('dotenv').config();
+const url = require('url');
 const express = require('express');
 const session = require('express-session');
 const MongoStore = require('connect-mongo');
@@ -30,6 +31,8 @@ var {database} = include('databaseConnection');
 
 const userCollection = database.db(mongodb_database).collection('users');
 
+app.set('view engine', 'ejs');
+
 app.use(express.urlencoded({extended: false}));
 
 var mongoStore = MongoStore.create({
@@ -50,32 +53,18 @@ app.use(session({
 // Sets the port number for the application
 const port = process.env.PORT || 3000;
 
+const navLinks = [
+    {name: "Home", link: "/"},
+    {name: "Members", link: "/members"},
+    {name: "Admin", link: "/admin"}
+]
+
 // Home Page
 app.get('/', (req, res) => {
-    let html = "";
+    const isAuthenticated = req.session.authenticated || false;
+    const name = req.session.name || '';
 
-    if (req.session.authenticated) {
-        const name = req.session.name || '';
-        html = `Hello ${name}!
-        <form action='/members' method='get'>
-        <button>Go to Members Area</button>
-        </form>
-        <form action='/logout' method='get'>
-        <button>Log out</button>
-        </form>
-        `;
-    } else {
-        html = `
-        <form action='/signUp' method='get'>
-        <button>Sign Up</button>
-        </form>
-        <form action='/logIn' method='get'>
-        <button>Log in</button>
-        </form>
-        `;
-    }
-
-    res.send(html);
+    res.render('index', { authenticated: isAuthenticated, userName: name, navLinks: navLinks, currentURL: url.parse(req.url).pathname });
 });
 
 // noSQL Injection code
@@ -83,7 +72,7 @@ app.get('/nosql-injection', async (req, res) => {
     var email = req.query.email;
 
     if (!email) {
-        res.send(`<h3>No email provided - try /nosql-injection?email=email@example.com</h3> <h3>or /nosql-injection?email[$ne]=email@example.com</h3>`);
+        res.render('nosql-injection', { emailProvided: false, attackDetected: false, result: null });
         return;
     }
     console.log("email: " + email);
@@ -93,7 +82,7 @@ app.get('/nosql-injection', async (req, res) => {
 
     if (validationResult.error != null) {
         console.log(validationResult.error);
-        res.send("<h1 style='color:darkred;'>A NoSQL injection attack was detected!!</h1>");
+        res.render('nosql-injection', { emailProvided: true, attackDetected: true, result: null });
         return;
     }
 
@@ -101,36 +90,20 @@ app.get('/nosql-injection', async (req, res) => {
 
     console.log(result);
 
-    res.send(`<h1>Hello ${result[0].name}</h1>`);
+    res.render('nosql-injection', { emailProvided: true, attackDetected: false, result: result[0] });
 });
 
 // Form for creating user with name, email, and password
 app.get('/signUp', (req, res) => {
 
-    const html = `
-    Create user
-    <form action='/signupSubmit' method='post'>
-    <input name='name' type='text' placeholder='Name'><br>
-    <input name='email' type='email' placeholder='Email'><br>
-    <input name='password' type='password' placeholder='Password'><br>
-    <button>Submit</button>
-    </form>
-    `;
-    res.send(html);
+    res.render("signup", {navLinks: navLinks, currentURL: url.parse(req.url).pathname});
 });
 
 
 // Creates login page
 app.get('/login', (req, res) => {
-    var html = `
-    Log in
-    <form action='/loggingin' method='post'>
-    <input name='email' type='text' placeholder='email'>
-    <input name='password' type='password' placeholder='password'>
-    <button>Submit</button>
-    </form>
-    `;
-    res.send(html);
+
+    res.render("login", {navLinks: navLinks, currentURL: url.parse(req.url).pathname});
 });
 
 app.post('/signupSubmit', async (req, res) => {
@@ -144,11 +117,7 @@ app.post('/signupSubmit', async (req, res) => {
     if (!password) missingFields += "<br>Password is required";
 
     if (missingFields) {
-        const html = `
-        ${missingFields}
-        <br><a href='/signUp'>Try Again</a>
-        `;
-        res.send(html);
+        res.render('signup-submit', { missingFields: missingFields });
         return;
     }
 
@@ -178,9 +147,6 @@ app.post('/signupSubmit', async (req, res) => {
     res.redirect("/members");
 });
 
-
-
-
 // Checks if username and password are correct
 app.post('/loggingin', async (req, res) => {
     const email = req.body.email;
@@ -199,11 +165,7 @@ app.post('/loggingin', async (req, res) => {
     console.log(result);
     if (result.length != 1) {
         console.log("user not found");
-        const html = `
-        Invalid email/password combination
-        <br><a href='/login'>Try Again</a>
-        `;
-        res.send(html);
+        res.render('logging-in', { invalidCredentials: true });
         return;
     }
     if (await bcrypt.compare(password, result[0].password)) {
@@ -217,11 +179,7 @@ app.post('/loggingin', async (req, res) => {
     }
     else {
         console.log("incorrect password");
-        const html = `
-        Invalid email/password combination
-        <br><a href='/login'>Try Again</a>
-        `;
-        res.send(html);
+        res.render('logging-in', { invalidCredentials: true });
         return;
     }
 });
@@ -239,26 +197,8 @@ app.get('/members', (req, res) => {
         return;
     }
 
-    const catImages = [
-        { id: 1, src: '/Adria.jpg' },
-        { id: 2, src: '/KitKat.jpg' },
-        { id: 3, src: '/Roe.jpg' },
-    ];
-
-    const randomCat = catImages[Math.floor(Math.random() * catImages.length)];
-
-    const html = `
-        <h1>Hello, ${req.session.name}.</h1>
-        <img src='${randomCat.src}' style='width:250px;'>
-        <br>
-        <form action='/logout' method='get'>
-            <button>Sign out</button>
-        </form>
-    `;
-
-    res.send(html);
+    res.render('members', {name: req.session.name, navLinks: navLinks, currentURL: url.parse(req.url).pathname})
 });
-
 
 // Serves static files to the client-side browser
 app.use(express.static(__dirname + "/public"));
@@ -266,7 +206,7 @@ app.use(express.static(__dirname + "/public"));
 // Creates a 404 page
 app.get("*", (req, res) => {
     res.status(404);
-    res.send('Page not found -- <span style="color: red;">404</span>');
+    res.render("404", {navLinks: navLinks, currentURL: url.parse(req.url).pathname});
 });
 
 //

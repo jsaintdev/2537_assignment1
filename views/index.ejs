@@ -1,0 +1,21 @@
+<%- include("templates/header") %> 
+    <% if (authenticated) { %>
+        <h2> Hello <%= userName %>! </h2>
+        <br>
+        <form action='/members' method='get'>
+            <button class="btn btn-primary rounded-pill px-3">Go to Members Area</button>
+        </form>
+        <br>
+        <form action='/logout' method='get'>
+            <button class="btn btn-primary rounded-pill px-3">Log out</button>
+        </form>
+    <% } else { %>
+        <form action='/signUp' method='get'>
+            <button class="btn btn-primary rounded-pill px-3">Sign Up</button>
+        </form>
+        <br>
+        <form action='/logIn' method='get'>
+            <button class="btn btn-primary rounded-pill px-3">Log in</button>
+        </form>
+    <% } %>
+<%- include("templates/footer") %> 
