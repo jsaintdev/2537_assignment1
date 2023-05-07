@@ -1,3 +1,29 @@
-<%- include("templates/header") %> 
-<!-- Content goes here -->
-<%- include("templates/footer") %> 
+<%- include("templates/header") %>
+<div style="text-align: left;">
+    <h2>Users</h2>
+</div>
+<div style="text-align: left;">
+    <table style="border-collapse: collapse;">
+    <% for(let i=0; i < users.length; i++) { %>
+    <tr>
+        <td style="border: none; padding-right: 50px;">
+            <%- include('templates/user', {user: users[i]})  %>
+        </td>
+
+        <td style="border: none;">
+            <form action="/promoteToAdmin" method="post">
+                <input type="hidden" name="userId" value="<%= users[i]._id %>">
+                <button type="submit" class="btn btn-danger rounded-pill px-3">Promote to Admin</button>
+            </form>
+        </td>
+        <td style="border: none;">
+            <form action="/demoteToUser" method="post">
+                <input type="hidden" name="userId" value="<%= users[i]._id %>">
+                <button type="submit" class="btn btn-success rounded-pill px-3">Demote to User</button>
+            </form>
+        </td>
+    </tr>
+    <% } %>
+    </table>
+</div>
+<%- include("templates/footer") %>

@@ -8,6 +8,7 @@ const session = require('express-session');
 const MongoStore = require('connect-mongo');
 const bcrypt = require('bcrypt');
 const saltRounds = 12;
+const { ObjectId } = require('mongodb');
 
 // Creates an instance of express. 'app' will define routes and handle server requests
 const app = express();
@@ -31,6 +32,7 @@ var {database} = include('databaseConnection');
 
 const userCollection = database.db(mongodb_database).collection('users');
 
+// Uses EJS to Render
 app.set('view engine', 'ejs');
 
 app.use(express.urlencoded({extended: false}));
@@ -59,7 +61,40 @@ const navLinks = [
     {name: "Admin", link: "/admin"}
 ]
 
-// Home Page
+// Validates if user is logged in
+function isValidSession(req) {
+    return req.session.authenticated;
+}
+
+function sessionValidation(req,res,next) {
+    if (isValidSession(req)) {
+        next();
+    }
+    else {
+        res.redirect('/login');
+    }
+}
+
+// Validates if user has admin access
+function isAdmin(req) {
+    if (req.session.user_type == "admin") {
+        return true;
+    }
+    return false;
+}
+
+function adminAuthorization(req, res, next) {
+    if (!isAdmin(req)) {
+        res.status(403);
+        res.render("errorMessage", {error: "You Are Not Authorized To Access This Page", navLinks: navLinks, currentURL: url.parse(req.url).pathname});
+        return;
+    }
+    else {
+        next();
+    }
+}
+
+// Index Page
 app.get('/', (req, res) => {
     const isAuthenticated = req.session.authenticated || false;
     const name = req.session.name || '';
@@ -137,7 +172,7 @@ app.post('/signupSubmit', async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, saltRounds);
 
-    await userCollection.insertOne({name: name, email: email, password: hashedPassword});
+    await userCollection.insertOne({name: name, email: email, password: hashedPassword, user_type: "user"});
     console.log("Successfully created user");
 
     // Log in the user
@@ -145,6 +180,18 @@ app.post('/signupSubmit', async (req, res) => {
     req.session.name = name;
 
     res.redirect("/members");
+});
+
+app.post('/promoteToAdmin', sessionValidation, adminAuthorization, async (req, res) => {
+    const userId = req.body.userId;
+    await userCollection.updateOne({_id: new ObjectId(userId)}, {$set: {user_type: "admin"}});
+    res.redirect('/admin');
+});
+
+app.post('/demoteToUser', sessionValidation, adminAuthorization, async (req, res) => {
+    const userId = req.body.userId;
+    await userCollection.updateOne({_id: new ObjectId(userId)}, {$set: {user_type: "user"}});
+    res.redirect('/admin');
 });
 
 // Checks if username and password are correct
@@ -160,7 +207,7 @@ app.post('/loggingin', async (req, res) => {
         return;
     }
 
-    const result = await userCollection.find({email: email}).project({name: 1, email: 1, password: 1, _id: 1}).toArray();
+    const result = await userCollection.find({email: email}).project({name: 1, email: 1, password: 1, user_type: 1, _id: 1}).toArray();
 
     console.log(result);
     if (result.length != 1) {
@@ -172,6 +219,7 @@ app.post('/loggingin', async (req, res) => {
         console.log("correct password");
         req.session.authenticated = true;
         req.session.name = result[0].name;
+        req.session.user_type = result[0].user_type;
         req.session.cookie.maxAge = expireTime;
 
         res.redirect('/members');
@@ -191,13 +239,17 @@ app.get('/logout', (req,res) => {
 })
 
 // Creates member page with a random pic of one of my girls <3
+app.use('/members', sessionValidation);
 app.get('/members', (req, res) => {
-    if (!req.session.authenticated) {
-        res.redirect('/');
-        return;
-    }
 
-    res.render('members', {name: req.session.name, navLinks: navLinks, currentURL: url.parse(req.url).pathname})
+    res.render('members', {name: req.session.name, user_type: req.session.user_type, navLinks: navLinks, currentURL: url.parse(req.url).pathname})
+});
+
+app.get('/admin', sessionValidation, adminAuthorization, async (req,res) => {
+
+    const result = await userCollection.find().project({name: 1, user_type:1, _id: 1}).toArray();
+ 
+    res.render("admin", {users: result, name: req.session.name, navLinks: navLinks, currentURL: url.parse(req.url).pathname});
 });
 
 // Serves static files to the client-side browser
